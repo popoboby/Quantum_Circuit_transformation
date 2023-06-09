@@ -125,7 +125,7 @@ if __name__ == '__main__':
     plt.show()
 
     # tree.nodes[tree.root_node].mapped_cir.draw(output='mpl', filename='result3.pdf')
-    print(tree.nodes[tree.root_node].add_gates)
+    print(tree.nodes[tree.root_node].add_gates)# 
 
     
 
