@@ -10,6 +10,7 @@ from copy import copy
 from qiskit.circuit.library.standard_gates import SwapGate, CXGate
 import networkx as nx
 import numpy as np
+import time as tm
 
 # dag
 # front_layer
@@ -309,15 +310,19 @@ class Tree:
 
         end_nodes = []
         
+        t_1 = 0.0
+        t_2 = 0.0
+
         for node_id in self.exp_nodes: # 从遍历待拓展节点
 
-        
+            tt_1 = tm.time()
             swaps, scores, add_gates = self.nodes[node_id].get_pertinent_swaps(coupling_map, _bit_indices, score_layer, dag)
-
-        
+            t_1 += (tm.time() - tt_1)
         
             for swap, score, add_gate in zip(swaps, scores, add_gates):
+                tt_2 = tm.time()
                 new_node = Node(self.nodes[node_id].front_layer.copy(), self.nodes[node_id].initial_layout.copy(), self.nodes[node_id].mapped_cir.copy(), self.nodes[node_id].applied_predecessors.copy()) 
+                t_2 += (tm.time() - tt_2)
                 new_node.swap(swap, coupling_map, canonical_register, dag, self.is_draw) # 该节点执行交换操作
                 new_node.exe_gates += self.nodes[node_id].exe_gates
                 new_node.score = (new_node.score / add_gate) + score + self.nodes[node_id].score
@@ -340,7 +345,9 @@ class Tree:
             self.find_fast_path = True
             root_node = self.get_best_nodes(end_nodes, 1)
             self.root_node = root_node[0]
-            return 
+            return t_1, t_2
+
+        return t_1, t_2
 
 
     def selection(self):

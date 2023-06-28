@@ -139,14 +139,37 @@ if __name__ == '__main__':
 
         t_start = tm.time()
 
+        t_exp = 0.0
+        t_exp_1 = 0.0
+        t_exp_2 = 0.0
+        t_sel = 0.0
+        t_dec = 0.0
+        total = 0.0
         while tree.nodes[tree.root_node].front_layer: # and not Tree.find_fast_path:
-            tree.expansion(coupling_map, _bit_indices, score_layer, dag, canonical_register)
+            total_start = tm.time()
+            t_exp_start = tm.time()
+            t_1, t_2 = tree.expansion(coupling_map, _bit_indices, score_layer, dag, canonical_register)
+            t_exp_1 += t_1
+            t_exp_2 += t_2
+            t_exp_end = tm.time()
+
+            t_exp += (t_exp_end - t_exp_start)
 
             if not tree.find_fast_path:
+                t_sel_start = tm.time()
                 tree.selection()
+                t_sel_end = tm.time()
+                t_sel += (t_sel_end - t_sel_start)
 
+
+                t_dec_start = tm.time()
                 tree.decision()
+                t_dec_end = tm.time()
+                t_dec += (t_dec_end - t_dec_start)
+
             count += 1
+            total_end = tm.time()
+            total += (total_end - total_start)
             print(str(count) + ': ' + str(tree.nodes[tree.root_node].add_gates) + ', ' + str(count_cx - tree.nodes[tree.root_node].exe_gates) + ', ' + str(tree.nodes[0].swap_gates), end='\r', flush=True)
             # print(tree.nodes[tree.root_node].front_layer)
             # if tree.nodes[tree.root_node].add_gates not in x:
@@ -159,6 +182,12 @@ if __name__ == '__main__':
 
         print()
         print(t_end - t_start)
+        print(total)
+        print('expand time spend: ' + str(t_exp))
+        print('expand_1 time spend: ' + str(t_exp_1))
+        print('expand_2 time spend: ' + str(t_exp_2))
+        print('select time spend: ' + str(t_sel))
+        print('decision time spend: ' + str(t_dec))
         # plt.plot(x, y)
         # plt.show()
 
