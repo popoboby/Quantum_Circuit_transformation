@@ -26,7 +26,7 @@ path = 'E:/files/quant/code/quantum/qasm_circuits/'
 width = 7
 depth = 17
 score_layer = 7 # 1020 rd84_253.qasm # decay = 0.7 7
-is_draw = False
+is_draw = True
 
 # rd84_253: 923 # score_layer==7
 # sym6_145: 169
@@ -120,11 +120,6 @@ if __name__ == '__main__':
         print('width:', width)
         print('depth:', depth)
         print('score_layer:', score_layer)
-    
-        # if coupling_map.graph.has_edge(0, 1):
-        #     print(coupling_map.neighbors(1))
-
-        # print(coupling_map.neighbors(7))
         circuit = QuantumCircuit.from_qasm_file(path + test)
         dag = circuit_to_dag(circuit)
         count_cx = dag._op_names['cx']
@@ -171,10 +166,6 @@ if __name__ == '__main__':
             total_end = tm.time()
             total += (total_end - total_start)
             print(str(count) + ': ' + str(tree.nodes[tree.root_node].add_gates) + ', ' + str(count_cx - tree.nodes[tree.root_node].exe_gates) + ', ' + str(tree.nodes[0].swap_gates), end='\r', flush=True)
-            # print(tree.nodes[tree.root_node].front_layer)
-            # if tree.nodes[tree.root_node].add_gates not in x:
-            #     x.append(tree.nodes[tree.root_node].add_gates)
-            #     y.append(count_cx - tree.nodes[tree.root_node].exe_gates) 
         t_end = tm.time()
 
         result_gates.append(tree.nodes[tree.root_node].add_gates)
@@ -193,6 +184,7 @@ if __name__ == '__main__':
 
         if is_draw:
             tree.nodes[tree.root_node].mapped_cir.draw(output='mpl', filename='result3.pdf')
+            tree.nodes[tree.root_node].mapped_cir.qasm(filename='test1.qasm')
         print(tree.nodes[tree.root_node].add_gates)
 
     i = 0

@@ -10,7 +10,6 @@ from copy import copy
 from qiskit.circuit.library.standard_gates import SwapGate, CXGate
 import networkx as nx
 import numpy as np
-import time as tm
 
 # dag
 # front_layer
@@ -34,6 +33,10 @@ class Node:
         self.add_gates = 0
         self.exe_gates = 0
         self.swap_gates = None
+        self.exe_score = 0
+        self.exe_num = 0
+
+
 
     # def _apply_gate(mapped_cir, node, current_layout, canonical_register): # 应用门
     #     new_node = _transform_gate_for_layout(node, current_layout, canonical_register)
@@ -78,7 +81,7 @@ class Node:
         node.add_gates = 0
 
 
-    def get_pertinent_swaps(self, coupling_map, _bit_indices, score_layer, dag): # 得到当前选择节点的最前层的相关交换门
+    def get_pertinent_swaps(self, coupling_map, _bit_indices, score_layer, dag, decay): # 得到当前选择节点的最前层的相关交换门
         candidate_swaps = [] # 一个集合变量
         scores = []
         add_gates = []
@@ -111,7 +114,7 @@ class Node:
             valid_swaps.append(swap)
 
         
-            score, add_gate = self.get_scores(coupling_map, trial_layout, score_layer, dag, 3)
+            score, add_gate = self.get_scores(coupling_map, trial_layout, score_layer, dag, 3, decay)
             scores.append(score)
             add_gates.append(add_gate)
 
@@ -149,11 +152,12 @@ class Node:
                             self.front_layer.append(successor)
 
         # print(self.front_layer)
-        self.score = score
+        self.score = score # 此处的score为可执行门数
         self.exe_gates = score
+        self.exe_num = score
         # return score
 
-    def get_scores(self, coupling_map, trial_layout, score_layer, dag, EXTENDED_SET_SIZE):
+    def get_scores(self, coupling_map, trial_layout, score_layer, dag, EXTENDED_SET_SIZE, decay):
         cost = 0.0
 
         involved_nodes = self.front_layer.copy()
@@ -171,7 +175,7 @@ class Node:
 
         added_swaps = 1
         isPos = True
-        decay = 1
+
         i = 0
         for layer_i in range(score_layer): # 往后看score_layer层
             i_max = len(involved_nodes)
@@ -207,7 +211,7 @@ class Node:
                     if not successor in involved_nodes:
                         involved_nodes.append(successor)
             if flag:
-                decay *= 0.7
+                decay *= 1
             else:
                 layer_i -= 1
             
@@ -304,30 +308,30 @@ class Tree:
         self.nodes.append(node)
 
 
-    def expansion(self, coupling_map, _bit_indices, score_layer, dag, canonical_register):
+    def expansion(self, coupling_map, _bit_indices, score_layer, dag, canonical_register, decay):
 
         self.selec_nodes = []
 
         end_nodes = []
         
-        t_1 = 0.0
-        t_2 = 0.0
-
         for node_id in self.exp_nodes: # 从遍历待拓展节点
 
-            tt_1 = tm.time()
-            swaps, scores, add_gates = self.nodes[node_id].get_pertinent_swaps(coupling_map, _bit_indices, score_layer, dag)
-            t_1 += (tm.time() - tt_1)
+        
+            swaps, scores, add_gates = self.nodes[node_id].get_pertinent_swaps(coupling_map, _bit_indices, score_layer, dag, decay)
+
+        
         
             for swap, score, add_gate in zip(swaps, scores, add_gates):
-                tt_2 = tm.time()
-                new_node = Node(self.nodes[node_id].front_layer.copy(), self.nodes[node_id].initial_layout.copy(), self.nodes[node_id].mapped_cir.copy(), self.nodes[node_id].applied_predecessors.copy()) 
-                t_2 += (tm.time() - tt_2)
+                new_node = Node(self.nodes[node_id].front_layer.copy(), self.nodes[node_id].initial_layout.copy(), self.nodes[node_id].mapped_cir.copy(), self.nodes[node_id].applied_predecessors.copy())
+                
                 new_node.swap(swap, coupling_map, canonical_register, dag, self.is_draw) # 该节点执行交换操作
+                if self.nodes[node_id].exe_num == 0 and swap == self.nodes[node_id].swap_gates:
+                    continue
                 new_node.exe_gates += self.nodes[node_id].exe_gates
-                new_node.score = (new_node.score / add_gate) + score + self.nodes[node_id].score
+                new_node.score = (new_node.score + score) / add_gate + self.nodes[node_id].score
                 new_node.add_gates = self.nodes[node_id].add_gates + 1
                 new_node.swap_gates = swap
+                new_node.exe_score = new_node.exe_gates - self.nodes[self.root_node].exe_gates
                 
                 
 
@@ -345,10 +349,35 @@ class Tree:
             self.find_fast_path = True
             root_node = self.get_best_nodes(end_nodes, 1)
             self.root_node = root_node[0]
-            return t_1, t_2
+            return 
 
-        return t_1, t_2
+    def get_best_nodes1(self, nodes_id1, count): # 根据nodes_id和count返回一个或多个最优节点
+        nodes_id = nodes_id1.copy()
 
+        # 考虑两种情况
+        if count >= len(nodes_id):
+            return nodes_id
+        else:
+
+            seed = np.random.randint(0, np.iinfo(np.int32).max)
+            rng = np.random.default_rng(seed)
+
+            target_nodes = []
+
+            
+            node_scores = dict.fromkeys(nodes_id, 0)
+            for node in node_scores:
+                node_scores[node] = self.nodes[node].exe_score
+            i = 0
+            while i < count:
+                i += 1
+                max_score = max(node_scores.values())
+                best_nodes = [k for k, v in node_scores.items() if v == max_score]
+                best_node = min(best_nodes) # rng.choice(best_nodes)
+                target_nodes.append(best_node)
+                node_scores.pop(best_node)
+
+            return target_nodes
 
     def selection(self):
         self.exp_nodes = self.get_best_nodes(self.selec_nodes, self.width)
@@ -367,7 +396,7 @@ class Tree:
 
     def decision(self):
         if self.selec_count == self.depth:
-            dec_node_id = self.get_best_nodes(self.exp_nodes, 1)
+            dec_node_id = self.get_best_nodes1(self.exp_nodes, 1)
             root_node_id = self.get_father_node(dec_node_id[0])
             self.root_node = root_node_id
             self.exp_nodes = []
@@ -389,6 +418,8 @@ class Tree:
         node.score = self.nodes[self.root_node].score
         node.exe_gates = self.nodes[self.root_node].exe_gates
         node.swap_gates = self.nodes[self.root_node].swap_gates
+        node.exe_num = self.nodes[self.root_node].exe_num
+        node.exe_score = 0
         self.nodes.clear()
         self.nodes.append(node)
         self.root_node = 0
