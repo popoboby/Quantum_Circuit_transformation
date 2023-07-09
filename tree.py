@@ -36,8 +36,6 @@ class Node:
         self.exe_score = 0
         self.exe_num = 0
 
-
-
     # def _apply_gate(mapped_cir, node, current_layout, canonical_register): # 应用门
     #     new_node = _transform_gate_for_layout(node, current_layout, canonical_register)
     #     mapped_cir.append(new_node.op, new_node.qargs, new_node.cargs)
@@ -81,7 +79,7 @@ class Node:
         node.add_gates = 0
 
 
-    def get_pertinent_swaps(self, coupling_map, _bit_indices, score_layer, dag, decay): # 得到当前选择节点的最前层的相关交换门
+    def get_pertinent_swaps(self, coupling_map, _bit_indices, score_layer, dag): # 得到当前选择节点的最前层的相关交换门
         candidate_swaps = [] # 一个集合变量
         scores = []
         add_gates = []
@@ -114,7 +112,7 @@ class Node:
             valid_swaps.append(swap)
 
         
-            score, add_gate = self.get_scores(coupling_map, trial_layout, score_layer, dag, 3, decay)
+            score, add_gate = self.get_scores(coupling_map, trial_layout, score_layer, dag, 3)
             scores.append(score)
             add_gates.append(add_gate)
 
@@ -152,12 +150,12 @@ class Node:
                             self.front_layer.append(successor)
 
         # print(self.front_layer)
-        self.score = score # 此处的score为可执行门数
+        self.score = score
         self.exe_gates = score
         self.exe_num = score
         # return score
 
-    def get_scores(self, coupling_map, trial_layout, score_layer, dag, EXTENDED_SET_SIZE, decay):
+    def get_scores(self, coupling_map, trial_layout, score_layer, dag, EXTENDED_SET_SIZE):
         cost = 0.0
 
         involved_nodes = self.front_layer.copy()
@@ -175,7 +173,7 @@ class Node:
 
         added_swaps = 1
         isPos = True
-
+        decay = 1
         i = 0
         for layer_i in range(score_layer): # 往后看score_layer层
             i_max = len(involved_nodes)
@@ -211,7 +209,7 @@ class Node:
                     if not successor in involved_nodes:
                         involved_nodes.append(successor)
             if flag:
-                decay *= 1
+                decay *= 0.7
             else:
                 layer_i -= 1
             
@@ -308,7 +306,7 @@ class Tree:
         self.nodes.append(node)
 
 
-    def expansion(self, coupling_map, _bit_indices, score_layer, dag, canonical_register, decay):
+    def expansion(self, coupling_map, _bit_indices, score_layer, dag, canonical_register):
 
         self.selec_nodes = []
 
@@ -317,7 +315,7 @@ class Tree:
         for node_id in self.exp_nodes: # 从遍历待拓展节点
 
         
-            swaps, scores, add_gates = self.nodes[node_id].get_pertinent_swaps(coupling_map, _bit_indices, score_layer, dag, decay)
+            swaps, scores, add_gates = self.nodes[node_id].get_pertinent_swaps(coupling_map, _bit_indices, score_layer, dag)
 
         
         
@@ -328,7 +326,7 @@ class Tree:
                 if self.nodes[node_id].exe_num == 0 and swap == self.nodes[node_id].swap_gates:
                     continue
                 new_node.exe_gates += self.nodes[node_id].exe_gates
-                new_node.score = (new_node.score + score) / add_gate + self.nodes[node_id].score
+                new_node.score = (new_node.score / add_gate) + score + self.nodes[node_id].score
                 new_node.add_gates = self.nodes[node_id].add_gates + 1
                 new_node.swap_gates = swap
                 new_node.exe_score = new_node.exe_gates - self.nodes[self.root_node].exe_gates
