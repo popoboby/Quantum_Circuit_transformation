@@ -30,7 +30,7 @@
      </font>
     </property>
     <property name="text">
-     <string>欢迎使用量子线路映射系统</string>
+     <string>欢迎使用量子程序映射系统</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton">
